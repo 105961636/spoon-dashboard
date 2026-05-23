@@ -1,21 +1,62 @@
 <script setup>
-import { computed } from "vue"
 import MetricCard from "../components/MetricCard.vue"
-import ComparisonBarChart from "../components/ComparisonBarChart.vue"
-import { summaryData } from "../data/summaryData"
 
-const beforeValue = computed(() => Number.parseFloat(summaryData.averageBefore))
-const afterValue = computed(() => Number.parseFloat(summaryData.averageAfter))
-const reductionValue = computed(() =>
-  Number((beforeValue.value - afterValue.value).toFixed(1))
-)
+const summaryMetrics = [
+  {
+    title: "Packet Format",
+    value: "JSON",
+    subtitle: "Current stream uses x / y / z fields"
+  },
+  {
+    title: "Live Axes",
+    value: "x / y / z",
+    subtitle: "Real-time gyroscope input channels"
+  },
+  {
+    title: "Derived Indicators",
+    value: "3",
+    subtitle: "Magnitude, status, and risk"
+  },
+  {
+    title: "Connection Method",
+    value: "Wi-Fi + /ws",
+    subtitle: "ESP32 WebSocket monitoring path"
+  }
+]
 
-const comparisonLabels = ["Before Stabilisation", "After Stabilisation"]
-const comparisonValues = [beforeValue.value, afterValue.value]
+const capabilities = [
+  "Real-time monitoring of gyroscope x, y, and z values.",
+  "Live chart rendering for incoming stream packets.",
+  "Client-side magnitude calculation from x / y / z input.",
+  "Client-side status classification based on current motion level.",
+  "Client-side risk estimation for quick dashboard interpretation.",
+  "Mock mode for testing when hardware is not physically available."
+]
 
-const progressStyle = computed(() => ({
-  width: `${summaryData.stabilityImprovement}%`
-}))
+const outputs = [
+  {
+    label: "Raw Input",
+    value: "x / y / z"
+  },
+  {
+    label: "Calculated Magnitude",
+    value: "Enabled"
+  },
+  {
+    label: "Status Layer",
+    value: "Stable / Monitoring / Unstable"
+  },
+  {
+    label: "Risk Layer",
+    value: "Low / Medium / High"
+  }
+]
+
+const notes = [
+  "The current hardware stream is based on x / y / z JSON packets over WebSocket.",
+  "This page summarises what the monitoring system can currently display and interpret.",
+  "Higher-level outputs such as corrected or stabilised motion can be added later if the hardware or control layer provides them."
+]
 </script>
 
 <template>
@@ -23,108 +64,62 @@ const progressStyle = computed(() => ({
     <div class="page-head">
       <div>
         <h2>Summary</h2>
-        <p>End-of-session review for evaluating overall spoon performance.</p>
+        <p>
+          Monitoring summary for the current dashboard capabilities, available
+          outputs, and real-time data interpretation layer.
+        </p>
       </div>
     </div>
 
     <section class="metrics-grid">
       <MetricCard
-        title="Meal Duration"
-        :value="summaryData.mealDuration"
-        subtitle="Recorded session length"
-      />
-      <MetricCard
-        title="Average Before"
-        :value="summaryData.averageBefore"
-        subtitle="Before stabilisation"
-      />
-      <MetricCard
-        title="Average After"
-        :value="summaryData.averageAfter"
-        subtitle="After stabilisation"
-      />
-      <MetricCard
-        title="Peak Tremor"
-        :value="summaryData.peakTremor"
-        subtitle="Maximum observed value"
+        v-for="item in summaryMetrics"
+        :key="item.title"
+        :title="item.title"
+        :value="item.value"
+        :subtitle="item.subtitle"
       />
     </section>
 
     <section class="grid-main">
       <article class="panel">
         <div class="panel-header">
-          <h3>Tremor Comparison</h3>
-          <span class="panel-tag">Before vs After</span>
+          <h3>Current Monitoring Capabilities</h3>
+          <span class="panel-tag">System Overview</span>
         </div>
 
-        <ComparisonBarChart
-          :labels="comparisonLabels"
-          :values="comparisonValues"
-          :height="360"
-          chart-label="Average Tremor"
-        />
-
-        <div class="comparison-meta">
-          <div class="meta-card">
-            <span>Absolute Reduction</span>
-            <strong>{{ reductionValue }} Hz</strong>
-          </div>
-          <div class="meta-card">
-            <span>Spill Risk</span>
-            <strong>{{ summaryData.spillRisk }}</strong>
-          </div>
-        </div>
+        <ul class="content-list">
+          <li v-for="item in capabilities" :key="item">
+            {{ item }}
+          </li>
+        </ul>
       </article>
 
       <article class="side-column">
         <div class="panel compact">
           <div class="panel-header">
-            <h3>Outcome Review</h3>
-            <span class="panel-tag">Session Result</span>
+            <h3>Available Outputs</h3>
+            <span class="panel-tag">Dashboard Layer</span>
           </div>
 
-          <div class="review-list">
-            <div class="review-item">
-              <span>Stability Improvement</span>
-              <strong>{{ summaryData.stabilityImprovement }}%</strong>
-            </div>
-            <div class="review-item">
-              <span>Average Before</span>
-              <strong>{{ summaryData.averageBefore }}</strong>
-            </div>
-            <div class="review-item">
-              <span>Average After</span>
-              <strong>{{ summaryData.averageAfter }}</strong>
-            </div>
-            <div class="review-item">
-              <span>Peak Tremor</span>
-              <strong>{{ summaryData.peakTremor }}</strong>
-            </div>
-          </div>
-
-          <div class="progress-block">
-            <div class="progress-meta">
-              <span>Stabilisation Effectiveness</span>
-              <strong>{{ summaryData.stabilityImprovement }}%</strong>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" :style="progressStyle"></div>
+          <div class="output-list">
+            <div class="output-item" v-for="item in outputs" :key="item.label">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
             </div>
           </div>
         </div>
 
         <div class="panel compact">
           <div class="panel-header">
-            <h3>Interpretation</h3>
-            <span class="panel-tag">Analysis</span>
+            <h3>System Notes</h3>
+            <span class="panel-tag">Current State</span>
           </div>
 
-          <p class="result-text">{{ summaryData.sessionResult }}</p>
-
-          <ul class="insight-list">
-            <li>Lower motion amplitude after stabilisation</li>
-            <li>Improved spoon control during the eating task</li>
-            <li>Reduced likelihood of spill-related events</li>
+          <ul class="content-list">
+            <li v-for="item in notes" :key="item">
+              {{ item }}
+            </li>
           </ul>
         </div>
       </article>
@@ -156,7 +151,7 @@ const progressStyle = computed(() => ({
 
 .grid-main {
   display: grid;
-  grid-template-columns: 1.5fr 1fr;
+  grid-template-columns: 1.45fr 1fr;
   gap: 24px;
 }
 
@@ -200,82 +195,41 @@ const progressStyle = computed(() => ({
   border-radius: 999px;
 }
 
-.comparison-meta {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  margin-top: 20px;
+.content-list {
+  margin: 0;
+  padding-left: 20px;
+  color: #334155;
+  line-height: 1.85;
 }
 
-.meta-card,
-.review-item {
+.output-list {
+  display: grid;
+  gap: 14px;
+}
+
+.output-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
   background: #f8fafc;
   padding: 16px 18px;
   border-radius: 14px;
 }
 
-.meta-card span,
-.review-item span {
+.output-item span {
   color: #475569;
 }
 
-.meta-card strong,
-.review-item strong {
+.output-item strong {
   color: #0f172a;
-  font-size: 18px;
-}
-
-.review-list {
-  display: grid;
-  gap: 14px;
-  margin-bottom: 20px;
-}
-
-.progress-block {
-  margin-top: 6px;
-}
-
-.progress-meta {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  color: #334155;
-  font-weight: 600;
-}
-
-.progress-bar {
-  height: 14px;
-  background: #e2e8f0;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #2563eb, #60a5fa);
-  border-radius: 999px;
-}
-
-.result-text {
-  margin: 0 0 18px;
-  color: #334155;
-  line-height: 1.7;
-}
-
-.insight-list {
-  margin: 0;
-  padding-left: 18px;
-  color: #334155;
-  line-height: 1.8;
+  font-size: 16px;
+  text-align: right;
 }
 
 @media (max-width: 1200px) {
   .metrics-grid,
-  .grid-main,
-  .comparison-meta {
+  .grid-main {
     grid-template-columns: 1fr;
   }
 }

@@ -1,24 +1,60 @@
 <script setup>
+import { computed, ref, watch } from "vue"
 import MetricCard from "../components/MetricCard.vue"
-import { useDeviceTelemetry } from "../composables/useDeviceTelemetry"
 
-const {
-  usbConnected,
-  usbPort,
-  packetCount,
-  samplingMode,
-  samplingRate,
-  bufferStatus,
-  firmwareVersion,
-  sensorStatus,
-  motorStatus,
-  deviceHealth,
-  latency,
-  uptimeDisplay,
-  connectionLabel,
-  toggleConnection,
-  resetTelemetry
-} = useDeviceTelemetry()
+const savedIp = localStorage.getItem("esp32-ip") || "192.168.1.45"
+const esp32Ip = ref(savedIp)
+
+watch(esp32Ip, (value) => {
+  localStorage.setItem("esp32-ip", value.trim())
+})
+
+const httpUrl = computed(() => {
+  const ip = esp32Ip.value.trim()
+  return ip ? `http://${ip}` : "-"
+})
+
+const wsUrl = computed(() => {
+  const ip = esp32Ip.value.trim()
+  return ip ? `ws://${ip}/ws` : "-"
+})
+
+const deviceMetrics = computed(() => [
+  {
+    title: "Primary Device",
+    value: "ESP32",
+    subtitle: "Current target hardware platform"
+  },
+  {
+    title: "Transport",
+    value: "Wi-Fi",
+    subtitle: "Board acts as network stream source"
+  },
+  {
+    title: "Endpoint",
+    value: "/ws",
+    subtitle: "WebSocket stream path"
+  },
+  {
+    title: "Packet Format",
+    value: "x / y / z",
+    subtitle: "Current JSON fields from hardware"
+  }
+])
+
+const checklist = [
+  "ESP32 is connected to the same Wi-Fi as the laptop.",
+  "Serial monitor shows a valid local IP address.",
+  "The browser can open the device test page successfully.",
+  "Live Data page is switched to ESP32 Mode.",
+  "Incoming packets contain numeric x, y, z values."
+]
+
+const notes = [
+  "The current hardware stream uses WebSocket over Wi-Fi.",
+  "The dashboard is already prepared to switch from mock mode to real mode once the IP is available.",
+  "Higher-level fields can be added later after control-layer outputs are defined."
+]
 </script>
 
 <template>
@@ -27,108 +63,100 @@ const {
       <div>
         <h2>Device Status</h2>
         <p>
-          Operational view of USB connection, packet flow, subsystem readiness,
-          and runtime health.
+          Current ESP32 connection details, target addresses, and hardware-side
+          validation notes for real dashboard integration.
         </p>
-      </div>
-
-      <div class="action-group">
-        <button class="primary" @click="toggleConnection">
-          {{ usbConnected ? "Disconnect USB" : "Connect USB" }}
-        </button>
-        <button class="secondary" @click="resetTelemetry">Reset Counters</button>
       </div>
     </div>
 
     <section class="metrics-grid">
       <MetricCard
-        title="Connection"
-        :value="connectionLabel"
-        subtitle="Current hardware link state"
-      />
-      <MetricCard
-        title="USB Port"
-        :value="usbPort"
-        subtitle="Configured input port"
-      />
-      <MetricCard
-        title="Packet Count"
-        :value="packetCount"
-        subtitle="Packets received in this session"
-      />
-      <MetricCard
-        title="Latency"
-        :value="`${latency} ms`"
-        subtitle="Estimated device response delay"
+        v-for="item in deviceMetrics"
+        :key="item.title"
+        :title="item.title"
+        :value="item.value"
+        :subtitle="item.subtitle"
       />
     </section>
 
     <section class="grid-two">
       <article class="panel">
         <div class="panel-header">
-          <h3>Connection and Transfer</h3>
-          <span class="panel-tag">USB Telemetry</span>
+          <h3>Connection Details</h3>
+          <span class="panel-tag">ESP32 Target</span>
+        </div>
+
+        <div class="field-stack">
+          <label class="field-label" for="esp32-ip">ESP32 Local IP</label>
+          <input
+            id="esp32-ip"
+            v-model="esp32Ip"
+            class="ip-input"
+            type="text"
+            placeholder="e.g. 192.168.1.45"
+          />
         </div>
 
         <div class="status-list">
           <div class="status-item">
-            <span>Sampling Mode</span>
-            <strong>{{ samplingMode }}</strong>
+            <span>HTTP URL</span>
+            <strong class="break-text">{{ httpUrl }}</strong>
           </div>
           <div class="status-item">
-            <span>Sampling Rate</span>
-            <strong>{{ samplingRate }}</strong>
+            <span>WebSocket URL</span>
+            <strong class="break-text">{{ wsUrl }}</strong>
           </div>
           <div class="status-item">
-            <span>Buffer Status</span>
-            <strong>{{ bufferStatus }}</strong>
+            <span>Expected Endpoint</span>
+            <strong>/ws</strong>
           </div>
           <div class="status-item">
-            <span>Uptime</span>
-            <strong>{{ uptimeDisplay }}</strong>
+            <span>Expected Port</span>
+            <strong>80</strong>
           </div>
         </div>
       </article>
 
       <article class="panel">
         <div class="panel-header">
-          <h3>Subsystem Health</h3>
-          <span class="panel-tag">Hardware Readiness</span>
+          <h3>Packet Example</h3>
+          <span class="panel-tag">Current JSON</span>
         </div>
 
-        <div class="status-list">
-          <div class="status-item">
-            <span>Sensor Status</span>
-            <strong>{{ sensorStatus }}</strong>
-          </div>
-          <div class="status-item">
-            <span>Motor Status</span>
-            <strong>{{ motorStatus }}</strong>
-          </div>
-          <div class="status-item">
-            <span>Firmware Version</span>
-            <strong>{{ firmwareVersion }}</strong>
-          </div>
-          <div class="status-item">
-            <span>Device Health</span>
-            <strong>{{ deviceHealth }}</strong>
-          </div>
-        </div>
+        <pre class="packet-box">{
+  "x": 12.3,
+  "y": -4.5,
+  "z": 7.8
+}</pre>
       </article>
     </section>
 
-    <section class="panel">
-      <div class="panel-header">
-        <h3>System Notes</h3>
-        <span class="panel-tag">Operational Notes</span>
-      </div>
+    <section class="grid-two">
+      <article class="panel">
+        <div class="panel-header">
+          <h3>Validation Checklist</h3>
+          <span class="panel-tag">Before Real Mode</span>
+        </div>
 
-      <ul class="note-list">
-        <li>USB is prepared as the primary transfer path for future real sensor input.</li>
-        <li>Packet count and latency are currently simulated for interface testing.</li>
-        <li>Sensor and motor subsystems are marked ready for stabilisation demos.</li>
-        <li>Later, this page can read actual port and packet information from the USB data layer.</li>
-      </ul>
+        <ol class="content-list">
+          <li v-for="item in checklist" :key="item">
+            {{ item }}
+          </li>
+        </ol>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <h3>System Notes</h3>
+          <span class="panel-tag">Current State</span>
+        </div>
+
+        <ul class="content-list">
+          <li v-for="item in notes" :key="item">
+            {{ item }}
+          </li>
+        </ul>
+      </article>
     </section>
   </section>
 </template>
@@ -151,30 +179,6 @@ const {
 .page-head p {
   margin: 0;
   color: #64748b;
-}
-
-.action-group {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-button {
-  border: none;
-  border-radius: 12px;
-  padding: 11px 18px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.primary {
-  background: #1d4ed8;
-  color: white;
-}
-
-.secondary {
-  background: #e2e8f0;
-  color: #0f172a;
 }
 
 .metrics-grid {
@@ -222,6 +226,27 @@ button {
   border-radius: 999px;
 }
 
+.field-stack {
+  margin-bottom: 18px;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.ip-input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: white;
+  color: #0f172a;
+  font-weight: 600;
+}
+
 .status-list {
   display: grid;
   gap: 14px;
@@ -230,7 +255,8 @@ button {
 .status-item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 18px;
   background: #f8fafc;
   padding: 16px 18px;
   border-radius: 14px;
@@ -242,13 +268,30 @@ button {
 
 .status-item strong {
   color: #0f172a;
+  text-align: right;
 }
 
-.note-list {
+.break-text {
+  word-break: break-all;
+}
+
+.content-list {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 20px;
   color: #334155;
   line-height: 1.9;
+}
+
+.packet-box {
+  margin: 0;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 18px;
+  border-radius: 16px;
+  font-family: Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-x: auto;
 }
 
 @media (max-width: 1100px) {

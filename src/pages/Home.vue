@@ -1,22 +1,51 @@
 <script setup>
-import { computed } from "vue"
 import { RouterLink } from "vue-router"
 import MetricCard from "../components/MetricCard.vue"
-import MotionChart from "../components/MotionChart.vue"
-import { baseMotionData } from "../data/motionData"
-import { deviceStatusData } from "../data/deviceData"
-import { overviewData } from "../data/overviewData"
-import { summaryData } from "../data/summaryData"
 
-const improvementDelta = computed(() => {
-  const before = Number.parseFloat(summaryData.averageBefore)
-  const after = Number.parseFloat(summaryData.averageAfter)
-  return `${(before - after).toFixed(1)} Hz`
-})
+const overviewMetrics = [
+  {
+    title: "Live Stream Schema",
+    value: "x / y / z",
+    subtitle: "Current incoming packet structure"
+  },
+  {
+    title: "Connection Method",
+    value: "Wi-Fi + /ws",
+    subtitle: "ESP32 WebSocket streaming path"
+  },
+  {
+    title: "Dashboard Modes",
+    value: "Mock + Real",
+    subtitle: "Testing mode and hardware mode"
+  },
+  {
+    title: "Client Analysis",
+    value: "Magnitude / Risk",
+    subtitle: "Derived indicators from live gyro data"
+  }
+]
 
-const liveStatus = computed(() => {
-  return overviewData.connectionStatus === "Connected" ? "Ready for monitoring" : "Offline"
-})
+const systemModules = [
+  {
+    title: "Live Monitoring",
+    text: "Real-time x, y, z packet visualisation with stream state, packet count, and last update."
+  },
+  {
+    title: "Device Connection",
+    text: "ESP32, Wi-Fi, HTTP, and WebSocket endpoint details prepared for direct local network testing."
+  },
+  {
+    title: "Client-side Analysis",
+    text: "Magnitude, smoothed magnitude, status, and risk are derived directly in the dashboard."
+  }
+]
+
+const dataFlow = [
+  "ESP32 generates gyroscope packets as x, y, z JSON data.",
+  "Packets are streamed through Wi-Fi using the /ws WebSocket endpoint.",
+  "The dashboard receives, visualises, and analyses the incoming stream.",
+  "Mock mode remains available for testing when the board is not physically available."
+]
 </script>
 
 <template>
@@ -24,81 +53,56 @@ const liveStatus = computed(() => {
     <section class="hero-panel">
       <div class="hero-copy">
         <span class="hero-badge">Smart Assistive Feeding System</span>
-        <h2>Home</h2>
+        <h2>System Overview</h2>
         <p>
-          A unified dashboard for monitoring tremor behaviour, reviewing
-          stabilisation performance, and evaluating session outcomes for the
-          smart spoon system.
+          A monitoring dashboard for viewing live gyroscope data, validating ESP32
+          connectivity, and presenting derived indicators for the smart spoon system.
         </p>
 
         <div class="hero-actions">
           <RouterLink to="/live-data" class="primary-link">Open Live Data</RouterLink>
-          <RouterLink to="/summary" class="secondary-link">View Session Summary</RouterLink>
+          <RouterLink to="/device-status" class="secondary-link">Check Device Status</RouterLink>
         </div>
       </div>
 
       <div class="hero-status">
         <div class="status-card">
-          <span class="status-label">System Readiness</span>
-          <strong>{{ liveStatus }}</strong>
+          <span class="status-label">Primary Device</span>
+          <strong>ESP32</strong>
         </div>
         <div class="status-card">
-          <span class="status-label">Device Health</span>
-          <strong>{{ deviceStatusData.deviceHealth }}</strong>
+          <span class="status-label">Current Stream</span>
+          <strong>x / y / z JSON</strong>
         </div>
         <div class="status-card">
-          <span class="status-label">Stability Improvement</span>
-          <strong>{{ summaryData.stabilityImprovement }}%</strong>
+          <span class="status-label">Monitoring Mode</span>
+          <strong>Mock and Real</strong>
         </div>
       </div>
     </section>
 
     <section class="metrics-grid">
       <MetricCard
-        title="Tremor Level"
-        :value="overviewData.tremorLevel"
-        subtitle="Current motion classification"
-      />
-      <MetricCard
-        title="Stability Score"
-        :value="`${overviewData.stabilityScore}%`"
-        subtitle="Estimated control improvement"
-      />
-      <MetricCard
-        title="Connection Status"
-        :value="overviewData.connectionStatus"
-        subtitle="Dashboard and device link"
-      />
-      <MetricCard
-        title="Average Tremor"
-        :value="overviewData.averageTremor"
-        subtitle="Current session overview"
+        v-for="item in overviewMetrics"
+        :key="item.title"
+        :title="item.title"
+        :value="item.value"
+        :subtitle="item.subtitle"
       />
     </section>
 
     <section class="grid-main">
       <article class="panel">
         <div class="panel-header">
-          <h3>Motion Overview</h3>
-          <span class="panel-tag">System Performance</span>
+          <h3>Data Flow</h3>
+          <span class="panel-tag">Current Architecture</span>
         </div>
 
-        <MotionChart :chart-data="baseMotionData" :height="360" />
-
-        <div class="comparison-strip">
-          <div class="comparison-item">
-            <span>Reduction from Before to After</span>
-            <strong>{{ improvementDelta }}</strong>
-          </div>
-          <div class="comparison-item">
-            <span>Spill Risk</span>
-            <strong>{{ overviewData.spillRisk }}</strong>
-          </div>
-          <div class="comparison-item">
-            <span>Meal Duration</span>
-            <strong>{{ overviewData.mealDuration }}</strong>
-          </div>
-        </div>
+        <ol class="step-list">
+          <li v-for="step in dataFlow" :key="step">
+            {{ step }}
+          </li>
+        </ol>
       </article>
 
       <article class="side-column">
@@ -109,25 +113,9 @@ const liveStatus = computed(() => {
           </div>
 
           <div class="module-list">
-            <div class="module-item">
-              <div>
-                <strong>Physical Support</strong>
-                <p>Weighted handle, ergonomic grip, and hand support.</p>
-              </div>
-            </div>
-
-            <div class="module-item">
-              <div>
-                <strong>Active Stabilisation</strong>
-                <p>Real-time response to tremor-related movement.</p>
-              </div>
-            </div>
-
-            <div class="module-item">
-              <div>
-                <strong>Digital Monitoring</strong>
-                <p>Web dashboard, live analysis, and session review.</p>
-              </div>
+            <div v-for="item in systemModules" :key="item.title" class="module-item">
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.text }}</p>
             </div>
           </div>
         </div>
@@ -135,23 +123,23 @@ const liveStatus = computed(() => {
         <div class="panel compact">
           <div class="panel-header">
             <h3>Quick Navigation</h3>
-            <span class="panel-tag">Workflow</span>
+            <span class="panel-tag">Dashboard</span>
           </div>
 
           <div class="quick-links">
             <RouterLink to="/live-data" class="quick-link-card">
               <span>Live Data</span>
-              <strong>Monitor tremor and stream updates</strong>
+              <strong>Monitor x / y / z packets, stream state, and derived indicators</strong>
             </RouterLink>
 
             <RouterLink to="/summary" class="quick-link-card">
               <span>Summary</span>
-              <strong>Review session outcome and improvement</strong>
+              <strong>Review current monitoring interpretation and stream context</strong>
             </RouterLink>
 
             <RouterLink to="/device-status" class="quick-link-card">
               <span>Device Status</span>
-              <strong>Check USB, telemetry, and subsystem health</strong>
+              <strong>Check target IP, HTTP URL, WebSocket URL, and packet format</strong>
             </RouterLink>
           </div>
         </div>
@@ -302,29 +290,11 @@ const liveStatus = computed(() => {
   border-radius: 999px;
 }
 
-.comparison-strip {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  margin-top: 20px;
-}
-
-.comparison-item {
-  background: #f8fafc;
-  border-radius: 14px;
-  padding: 16px 18px;
-}
-
-.comparison-item span {
-  display: block;
-  color: #475569;
-  font-size: 14px;
-  margin-bottom: 8px;
-}
-
-.comparison-item strong {
-  color: #0f172a;
-  font-size: 20px;
+.step-list {
+  margin: 0;
+  padding-left: 20px;
+  color: #334155;
+  line-height: 1.85;
 }
 
 .module-list,
@@ -381,8 +351,7 @@ const liveStatus = computed(() => {
 @media (max-width: 1200px) {
   .hero-panel,
   .metrics-grid,
-  .grid-main,
-  .comparison-strip {
+  .grid-main {
     grid-template-columns: 1fr;
   }
 }

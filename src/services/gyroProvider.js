@@ -36,61 +36,115 @@ export function createMockGyroProvider() {
   }
 }
 
-export function createWebSocketGyroProvider(url) {
+export function createWebSocketGyroProvider(
+  url,
+  { reconnectDelay = 2000, maxRetries = 5 } = {}
+) {
   let socket = null
+  let reconnectTimer = null
+  let manuallyStopped = false
+  let retryCount = 0
+
+  const clearReconnectTimer = () => {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer)
+      reconnectTimer = null
+    }
+  }
+
+  const safeClose = () => {
+    if (socket) {
+      socket.onopen = null
+      socket.onmessage = null
+      socket.onerror = null
+      socket.onclose = null
+      socket.close()
+      socket = null
+    }
+  }
 
   return {
     start(onPacket, onStateChange) {
-      if (socket) return
+      if (socket || reconnectTimer) return
 
-      socket = new WebSocket(url)
+      manuallyStopped = false
+      retryCount = 0
 
-      socket.onopen = () => {
-        onStateChange?.('Connected')
-      }
+      const connect = () => {
+        if (manuallyStopped) return
 
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
+        onStateChange?.(retryCount === 0 ? "Connecting" : "Reconnecting")
+        socket = new WebSocket(url)
 
-          if (
-            typeof data.x !== 'number' ||
-            typeof data.y !== 'number' ||
-            typeof data.z !== 'number'
-          ) {
+        socket.onopen = () => {
+          retryCount = 0
+          clearReconnectTimer()
+          onStateChange?.("Connected")
+        }
+
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+
+            if (
+              typeof data.x !== "number" ||
+              typeof data.y !== "number" ||
+              typeof data.z !== "number"
+            ) {
+              return
+            }
+
+            onPacket({
+              x: data.x,
+              y: data.y,
+              z: data.z,
+              timestamp: new Date().toLocaleTimeString()
+            })
+          } catch (error) {
+            console.error("Invalid ESP32 JSON:", error)
+          }
+        }
+
+        socket.onerror = () => {
+          onStateChange?.("Error")
+        }
+
+        socket.onclose = () => {
+          socket = null
+
+          if (manuallyStopped) {
+            onStateChange?.("Disconnected")
             return
           }
 
-          onPacket({
-            x: data.x,
-            y: data.y,
-            z: data.z,
-            timestamp: new Date().toLocaleTimeString()
-          })
-        } catch (error) {
-          console.error('Invalid ESP32 JSON:', error)
+          if (retryCount < maxRetries) {
+            retryCount += 1
+            onStateChange?.("Reconnecting")
+
+            clearReconnectTimer()
+            reconnectTimer = setTimeout(() => {
+              reconnectTimer = null
+              connect()
+            }, reconnectDelay)
+          } else {
+            onStateChange?.("Disconnected")
+          }
         }
       }
 
-      socket.onerror = () => {
-        onStateChange?.('Error')
-      }
-
-      socket.onclose = () => {
-        onStateChange?.('Disconnected')
-        socket = null
-      }
+      connect()
     },
 
     stop() {
-      if (socket) {
-        socket.close()
-        socket = null
-      }
+      manuallyStopped = true
+      clearReconnectTimer()
+      safeClose()
     },
 
     reset() {
+      retryCount = 0
       this.stop()
     }
   }
 }
+
