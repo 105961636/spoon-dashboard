@@ -43,8 +43,13 @@ const smoothedMagnitude = computed(() => {
   return calculateMovingAverage(magnitudes, 5)
 })
 
-const derivedStatus = computed(() => deriveStatus(smoothedMagnitude.value))
-const derivedRisk = computed(() => deriveRisk(smoothedMagnitude.value))
+const derivedStatus = computed(() => {
+  return deriveStatus(smoothedMagnitude.value)
+})
+
+const derivedRisk = computed(() => {
+  return deriveRisk(smoothedMagnitude.value)
+})
 
 const packetSource = computed(() => {
   return mode.value === "mock" ? "Mock Stream" : "ESP32 WebSocket"
@@ -99,10 +104,7 @@ const createProvider = () => {
     return createMockGyroProvider()
   }
 
-  return createWebSocketGyroProvider(websocketUrl.value, {
-    reconnectDelay: 2000,
-    maxRetries: 5
-  })
+  return createWebSocketGyroProvider(websocketUrl.value)
 }
 
 const startStream = () => {
@@ -179,7 +181,7 @@ onBeforeUnmount(() => {
       <div>
         <h2>Live Data</h2>
         <p>
-          Real-time gyroscope monitoring with mock testing and ESP32-ready
+          Phase 1 real-time gyroscope monitoring with mock testing and ESP32-ready
           WebSocket integration.
         </p>
       </div>
@@ -232,14 +234,25 @@ onBeforeUnmount(() => {
     </section>
 
     <section class="grid-main">
-      <article class="panel">
-        <div class="panel-header">
-          <h3>Gyroscope Live Stream</h3>
-          <span class="panel-tag">{{ modeTag }}</span>
-        </div>
+      <section class="chart-column">
+        <article class="panel">
+          <div class="panel-header">
+            <h3>X / Y Live Stream</h3>
+            <span class="panel-tag">Axis Comparison</span>
+          </div>
 
-        <GyroChart :chart-data="history" :height="430" />
-      </article>
+          <GyroChart :chart-data="history" mode="xy" :height="290" />
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <h3>Z / Magnitude Stream</h3>
+            <span class="panel-tag">{{ modeTag }}</span>
+          </div>
+
+          <GyroChart :chart-data="history" mode="zm" :height="290" />
+        </article>
+      </section>
 
       <article class="side-column">
         <div class="panel compact">
@@ -303,9 +316,7 @@ onBeforeUnmount(() => {
             </div>
             <div class="value-item">
               <span>WebSocket URL</span>
-              <strong class="small-strong">
-                {{ mode === "mock" ? "Local mock stream" : websocketUrl }}
-              </strong>
+              <strong class="small-strong">{{ mode === "mock" ? "Local mock stream" : websocketUrl }}</strong>
             </div>
           </div>
         </div>
@@ -322,13 +333,13 @@ onBeforeUnmount(() => {
         <div class="panel compact">
           <div class="panel-header">
             <h3>Stream Notes</h3>
-            <span class="panel-tag">Current Scope</span>
+            <span class="panel-tag">Phase 1</span>
           </div>
 
           <ul class="note-list">
+            <li>X / Y and Z / Magnitude are split into two charts for clearer testing visibility.</li>
             <li>Current hardware packet format is x, y, z JSON over WebSocket.</li>
-            <li>Mock mode is used to validate the dashboard before board-side testing.</li>
-            <li>Real mode automatically retries the connection if the stream drops.</li>
+            <li>ESP32 mode is ready for direct connection once the local IP is available.</li>
           </ul>
         </div>
       </article>
@@ -421,6 +432,7 @@ button {
   gap: 24px;
 }
 
+.chart-column,
 .side-column {
   display: grid;
   gap: 24px;
