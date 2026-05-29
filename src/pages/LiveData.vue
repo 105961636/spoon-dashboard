@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import MetricCard from "../components/MetricCard.vue"
 import GyroChart from "../components/GyroChart.vue"
+import { useDashboardSnapshot } from "../composables/useDashboardSnapshot"
 import {
   createMockGyroProvider,
   createWebSocketGyroProvider
@@ -30,6 +31,14 @@ const currentMagnitude = ref(0)
 const history = ref([])
 const lastPacket = ref(null)
 const errorMessage = ref("")
+const minX = ref(null)
+const maxX = ref(null)
+const minY = ref(null)
+const maxY = ref(null)
+const minZ = ref(null)
+const maxZ = ref(null)
+
+const { updateSnapshot } = useDashboardSnapshot()
 
 let provider = null
 
@@ -43,20 +52,11 @@ const smoothedMagnitude = computed(() => {
   return calculateMovingAverage(magnitudes, 5)
 })
 
-const derivedStatus = computed(() => {
-  return deriveStatus(smoothedMagnitude.value)
-})
-
-const derivedRisk = computed(() => {
-  return deriveRisk(smoothedMagnitude.value)
-})
+const derivedStatus = computed(() => deriveStatus(smoothedMagnitude.value))
+const derivedRisk = computed(() => deriveRisk(smoothedMagnitude.value))
 
 const packetSource = computed(() => {
   return mode.value === "mock" ? "Mock Stream" : "ESP32 WebSocket"
-})
-
-const modeTag = computed(() => {
-  return mode.value === "mock" ? "Testing" : "ESP32 Ready"
 })
 
 const formattedPacket = computed(() => {
@@ -70,6 +70,58 @@ const formattedPacket = computed(() => {
 
   return JSON.stringify(lastPacket.value, null, 2)
 })
+
+const keyFinding = computed(() => {
+  const x = Math.abs(currentX.value)
+  const y = Math.abs(currentY.value)
+  const z = Math.abs(currentZ.value)
+
+  if (z > 1000 && (x < 200 && y < 200)) {
+    return "Z-axis is on a much larger scale than X and Y, suggesting a possible unit or field-mapping inconsistency."
+  }
+
+  if (packetCount.value > 0 && connectionState.value === "Connected") {
+    return "Dashboard is receiving live packets successfully and visualising the incoming stream in real time."
+  }
+
+  return "Dashboard is ready for real-time monitoring and ESP32 integration."
+})
+
+const updateRanges = (x, y, z) => {
+  minX.value = minX.value === null ? x : Math.min(minX.value, x)
+  maxX.value = maxX.value === null ? x : Math.max(maxX.value, x)
+  minY.value = minY.value === null ? y : Math.min(minY.value, y)
+  maxY.value = maxY.value === null ? y : Math.max(maxY.value, y)
+  minZ.value = minZ.value === null ? z : Math.min(minZ.value, z)
+  maxZ.value = maxZ.value === null ? z : Math.max(maxZ.value, z)
+}
+
+const syncSnapshot = () => {
+  updateSnapshot({
+    mode: mode.value,
+    connectionState: connectionState.value,
+    packetCount: packetCount.value,
+    lastUpdate: lastUpdate.value,
+    source: packetSource.value,
+    ip: esp32Ip.value.trim(),
+    websocketUrl: mode.value === "mock" ? "" : websocketUrl.value,
+    currentX: currentX.value,
+    currentY: currentY.value,
+    currentZ: currentZ.value,
+    currentMagnitude: currentMagnitude.value,
+    smoothedMagnitude: smoothedMagnitude.value,
+    derivedStatus: derivedStatus.value,
+    derivedRisk: derivedRisk.value,
+    lastPacket: lastPacket.value,
+    minX: minX.value,
+    maxX: maxX.value,
+    minY: minY.value,
+    maxY: maxY.value,
+    minZ: minZ.value,
+    maxZ: maxZ.value,
+    finding: keyFinding.value
+  })
+}
 
 const handlePacket = (packet) => {
   const magnitude = calculateMagnitude(packet.x, packet.y, packet.z)
@@ -87,6 +139,8 @@ const handlePacket = (packet) => {
     z: Number(packet.z.toFixed(2))
   }
 
+  updateRanges(packet.x, packet.y, packet.z)
+
   history.value = [
     ...history.value.slice(-79),
     {
@@ -97,6 +151,8 @@ const handlePacket = (packet) => {
       timestamp: packet.timestamp
     }
   ]
+
+  syncSnapshot()
 }
 
 const createProvider = () => {
@@ -114,6 +170,7 @@ const startStream = () => {
   if (mode.value === "real" && !esp32Ip.value.trim()) {
     connectionState.value = "No IP"
     errorMessage.value = "Please enter the ESP32 local IP before starting real mode."
+    syncSnapshot()
     return
   }
 
@@ -121,15 +178,18 @@ const startStream = () => {
 
   if (mode.value === "mock") {
     connectionState.value = "Connected"
+    syncSnapshot()
     provider.start(handlePacket)
     return
   }
 
   localStorage.setItem("esp32-ip", esp32Ip.value.trim())
   connectionState.value = "Connecting"
+  syncSnapshot()
 
   provider.start(handlePacket, (state) => {
     connectionState.value = state
+    syncSnapshot()
   })
 }
 
@@ -144,6 +204,8 @@ const stopStream = () => {
   } else if (connectionState.value !== "No IP") {
     connectionState.value = "Disconnected"
   }
+
+  syncSnapshot()
 }
 
 const resetStream = () => {
@@ -158,7 +220,15 @@ const resetStream = () => {
   history.value = []
   lastPacket.value = null
   errorMessage.value = ""
+  minX.value = null
+  maxX.value = null
+  minY.value = null
+  maxY.value = null
+  minZ.value = null
+  maxZ.value = null
   connectionState.value = "Idle"
+
+  syncSnapshot()
 }
 
 watch(mode, () => {
@@ -167,6 +237,7 @@ watch(mode, () => {
 })
 
 onMounted(() => {
+  syncSnapshot()
   startStream()
 })
 
@@ -181,8 +252,8 @@ onBeforeUnmount(() => {
       <div>
         <h2>Live Data</h2>
         <p>
-          Phase 1 real-time gyroscope monitoring with mock testing and ESP32-ready
-          WebSocket integration.
+          Real-time monitoring of ESP32 packets with stream validation, debugging,
+          and testing-focused visualisation.
         </p>
       </div>
 
@@ -206,9 +277,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <p v-if="errorMessage" class="error-text">
-      {{ errorMessage }}
-    </p>
+    <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
 
     <section class="metrics-grid">
       <MetricCard
@@ -234,113 +303,91 @@ onBeforeUnmount(() => {
     </section>
 
     <section class="grid-main">
-      <section class="chart-column">
-        <article class="panel">
-          <div class="panel-header">
-            <h3>X / Y Live Stream</h3>
-            <span class="panel-tag">Axis Comparison</span>
+      <article class="panel chart-panel">
+        <div class="panel-header">
+          <h3>Gyroscope Charts</h3>
+          <span class="panel-tag">{{ mode === "mock" ? "Mock Testing" : "ESP32 Live" }}</span>
+        </div>
+
+        <div class="chart-stack">
+          <div class="chart-block">
+            <div class="subhead">
+              <span>X / Y Live Stream</span>
+              <small>Separated for clearer comparison</small>
+            </div>
+            <GyroChart :chart-data="history" mode="xy" :height="210" />
           </div>
 
-          <GyroChart :chart-data="history" mode="xy" :height="290" />
-        </article>
-
-        <article class="panel">
-          <div class="panel-header">
-            <h3>Z / Magnitude Stream</h3>
-            <span class="panel-tag">{{ modeTag }}</span>
+          <div class="chart-block">
+            <div class="subhead">
+              <span>Z / Magnitude Stream</span>
+              <small>Shown separately due to scale difference</small>
+            </div>
+            <GyroChart :chart-data="history" mode="zm" :height="210" />
           </div>
-
-          <GyroChart :chart-data="history" mode="zm" :height="290" />
-        </article>
-      </section>
+        </div>
+      </article>
 
       <article class="side-column">
         <div class="panel compact">
           <div class="panel-header">
             <h3>Current Values</h3>
-            <span class="panel-tag">x / y / z</span>
+            <span class="panel-tag">Live</span>
           </div>
 
           <div class="value-list">
-            <div class="value-item">
-              <span>X</span>
-              <strong>{{ currentX.toFixed(2) }}</strong>
-            </div>
-            <div class="value-item">
-              <span>Y</span>
-              <strong>{{ currentY.toFixed(2) }}</strong>
-            </div>
-            <div class="value-item">
-              <span>Z</span>
-              <strong>{{ currentZ.toFixed(2) }}</strong>
-            </div>
-            <div class="value-item">
-              <span>Magnitude</span>
-              <strong>{{ currentMagnitude.toFixed(2) }}</strong>
-            </div>
+            <div class="value-item"><span>X</span><strong>{{ currentX.toFixed(2) }}</strong></div>
+            <div class="value-item"><span>Y</span><strong>{{ currentY.toFixed(2) }}</strong></div>
+            <div class="value-item"><span>Z</span><strong>{{ currentZ.toFixed(2) }}</strong></div>
+            <div class="value-item"><span>Magnitude</span><strong>{{ currentMagnitude.toFixed(2) }}</strong></div>
           </div>
         </div>
 
         <div class="panel compact">
           <div class="panel-header">
-            <h3>Derived Indicators</h3>
+            <h3>Testing Indicators</h3>
+            <span class="panel-tag">Ranges</span>
+          </div>
+
+          <div class="value-list">
+            <div class="value-item"><span>X Range</span><strong>{{ minX?.toFixed?.(2) ?? "-" }} to {{ maxX?.toFixed?.(2) ?? "-" }}</strong></div>
+            <div class="value-item"><span>Y Range</span><strong>{{ minY?.toFixed?.(2) ?? "-" }} to {{ maxY?.toFixed?.(2) ?? "-" }}</strong></div>
+            <div class="value-item"><span>Z Range</span><strong>{{ minZ?.toFixed?.(2) ?? "-" }} to {{ maxZ?.toFixed?.(2) ?? "-" }}</strong></div>
+          </div>
+        </div>
+
+        <div class="panel compact">
+          <div class="panel-header">
+            <h3>Analysis Status</h3>
             <span class="panel-tag">Client-side</span>
           </div>
 
           <div class="value-list">
-            <div class="value-item">
-              <span>Smoothed Magnitude</span>
-              <strong>{{ smoothedMagnitude.toFixed(2) }}</strong>
-            </div>
-            <div class="value-item">
-              <span>Status</span>
-              <strong>{{ derivedStatus }}</strong>
-            </div>
-            <div class="value-item">
-              <span>Risk</span>
-              <strong>{{ derivedRisk }}</strong>
-            </div>
+            <div class="value-item"><span>Smoothed Magnitude</span><strong>{{ smoothedMagnitude.toFixed(2) }}</strong></div>
+            <div class="value-item"><span>Status</span><strong>{{ derivedStatus }}</strong></div>
+            <div class="value-item"><span>Risk</span><strong>{{ derivedRisk }}</strong></div>
+          </div>
+
+          <div class="finding-box">
+            <strong>Key Finding</strong>
+            <p>{{ keyFinding }}</p>
           </div>
         </div>
 
         <div class="panel compact">
           <div class="panel-header">
-            <h3>Connection Debug</h3>
-            <span class="panel-tag">Target</span>
+            <h3>Debug Panel</h3>
+            <span class="panel-tag">JSON</span>
           </div>
 
           <div class="value-list">
-            <div class="value-item">
-              <span>Mode</span>
-              <strong>{{ mode === "mock" ? "Mock" : "ESP32" }}</strong>
-            </div>
             <div class="value-item">
               <span>WebSocket URL</span>
               <strong class="small-strong">{{ mode === "mock" ? "Local mock stream" : websocketUrl }}</strong>
             </div>
           </div>
-        </div>
-
-        <div class="panel compact">
-          <div class="panel-header">
-            <h3>Last Raw Packet</h3>
-            <span class="panel-tag">JSON</span>
-          </div>
 
           <pre class="packet-box">{{ formattedPacket }}</pre>
-        </div>
-
-        <div class="panel compact">
-          <div class="panel-header">
-            <h3>Stream Notes</h3>
-            <span class="panel-tag">Phase 1</span>
-          </div>
-
-          <ul class="note-list">
-            <li>X / Y and Z / Magnitude are split into two charts for clearer testing visibility.</li>
-            <li>Current hardware packet format is x, y, z JSON over WebSocket.</li>
-            <li>ESP32 mode is ready for direct connection once the local IP is available.</li>
-          </ul>
         </div>
       </article>
     </section>
@@ -423,25 +470,54 @@ button {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .grid-main {
   display: grid;
-  grid-template-columns: 1.7fr 1fr;
-  gap: 24px;
+  grid-template-columns: 1.55fr 1fr;
+  gap: 22px;
 }
 
-.chart-column,
 .side-column {
   display: grid;
-  gap: 24px;
+  gap: 18px;
+}
+
+.chart-panel {
+  padding-bottom: 18px;
+}
+
+.chart-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.chart-block {
+  background: #f8fafc;
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.subhead {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  color: #334155;
+  font-weight: 700;
+}
+
+.subhead small {
+  color: #64748b;
+  font-weight: 600;
 }
 
 .panel {
   background: white;
   border-radius: 22px;
-  padding: 24px;
+  padding: 22px;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
@@ -455,7 +531,7 @@ button {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .panel-header h3 {
@@ -475,7 +551,7 @@ button {
 
 .value-list {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .value-item {
@@ -484,7 +560,7 @@ button {
   align-items: center;
   gap: 16px;
   background: #f8fafc;
-  padding: 16px 18px;
+  padding: 14px 16px;
   border-radius: 14px;
 }
 
@@ -494,32 +570,45 @@ button {
 
 .value-item strong {
   color: #0f172a;
-  font-size: 18px;
+  font-size: 17px;
+  text-align: right;
 }
 
 .small-strong {
-  font-size: 14px !important;
-  text-align: right;
+  font-size: 13px !important;
   word-break: break-all;
 }
 
-.packet-box {
+.finding-box {
+  margin-top: 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.finding-box strong {
+  display: block;
+  color: #1d4ed8;
+  margin-bottom: 8px;
+}
+
+.finding-box p {
   margin: 0;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.packet-box {
+  margin: 14px 0 0;
   background: #0f172a;
   color: #e2e8f0;
-  padding: 18px;
+  padding: 16px;
   border-radius: 16px;
   font-family: Consolas, monospace;
   font-size: 14px;
   line-height: 1.7;
   overflow-x: auto;
-}
-
-.note-list {
-  margin: 0;
-  padding-left: 18px;
-  color: #334155;
-  line-height: 1.8;
 }
 
 @media (max-width: 1200px) {

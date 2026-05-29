@@ -1,7 +1,11 @@
 <script setup>
+import { computed } from "vue"
 import MetricCard from "../components/MetricCard.vue"
+import { useDashboardSnapshot } from "../composables/useDashboardSnapshot"
 
-const summaryMetrics = [
+const { snapshot } = useDashboardSnapshot()
+
+const summaryMetrics = computed(() => [
   {
     title: "Packet Format",
     value: "JSON",
@@ -22,18 +26,9 @@ const summaryMetrics = [
     value: "Wi-Fi + /ws",
     subtitle: "ESP32 WebSocket monitoring path"
   }
-]
+])
 
-const capabilities = [
-  "Real-time monitoring of gyroscope x, y, and z values.",
-  "Live chart rendering for incoming stream packets.",
-  "Client-side magnitude calculation from x / y / z input.",
-  "Client-side status classification based on current motion level.",
-  "Client-side risk estimation for quick dashboard interpretation.",
-  "Mock mode for testing when hardware is not physically available."
-]
-
-const outputs = [
+const outputs = computed(() => [
   {
     label: "Raw Input",
     value: "x / y / z"
@@ -50,13 +45,19 @@ const outputs = [
     label: "Risk Layer",
     value: "Low / Medium / High"
   }
-]
+])
 
-const notes = [
-  "The current hardware stream is based on x / y / z JSON packets over WebSocket.",
-  "This page summarises what the monitoring system can currently display and interpret.",
-  "Higher-level outputs such as corrected or stabilised motion can be added later if the hardware or control layer provides them."
-]
+const currentFindings = computed(() => [
+  "Dashboard can receive and visualise real-time ESP32 packets through WebSocket.",
+  "Packet count, raw packet output, and current values support testing and troubleshooting.",
+  snapshot.value.finding
+])
+
+const limitations = computed(() => [
+  "Current data stream is limited to x / y / z fields.",
+  "Higher-level corrected or stabilised output is not yet integrated.",
+  "Interpretation quality depends on consistency of incoming sensor units and scale."
+])
 </script>
 
 <template>
@@ -84,12 +85,12 @@ const notes = [
     <section class="grid-main">
       <article class="panel">
         <div class="panel-header">
-          <h3>Current Monitoring Capabilities</h3>
-          <span class="panel-tag">System Overview</span>
+          <h3>Current Monitoring Findings</h3>
+          <span class="panel-tag">Testing Summary</span>
         </div>
 
         <ul class="content-list">
-          <li v-for="item in capabilities" :key="item">
+          <li v-for="item in currentFindings" :key="item">
             {{ item }}
           </li>
         </ul>
@@ -112,12 +113,12 @@ const notes = [
 
         <div class="panel compact">
           <div class="panel-header">
-            <h3>System Notes</h3>
+            <h3>Current Limitations</h3>
             <span class="panel-tag">Current State</span>
           </div>
 
           <ul class="content-list">
-            <li v-for="item in notes" :key="item">
+            <li v-for="item in limitations" :key="item">
               {{ item }}
             </li>
           </ul>
@@ -152,18 +153,18 @@ const notes = [
 .grid-main {
   display: grid;
   grid-template-columns: 1.45fr 1fr;
-  gap: 24px;
+  gap: 22px;
 }
 
 .side-column {
   display: grid;
-  gap: 24px;
+  gap: 22px;
 }
 
 .panel {
   background: white;
   border-radius: 22px;
-  padding: 24px;
+  padding: 22px;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
@@ -177,7 +178,7 @@ const notes = [
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .panel-header h3 {
@@ -204,7 +205,7 @@ const notes = [
 
 .output-list {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .output-item {
@@ -213,7 +214,7 @@ const notes = [
   align-items: center;
   gap: 16px;
   background: #f8fafc;
-  padding: 16px 18px;
+  padding: 14px 16px;
   border-radius: 14px;
 }
 

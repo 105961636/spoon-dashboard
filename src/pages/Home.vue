@@ -1,50 +1,53 @@
 <script setup>
+import { computed } from "vue"
 import { RouterLink } from "vue-router"
 import MetricCard from "../components/MetricCard.vue"
+import { useDashboardSnapshot } from "../composables/useDashboardSnapshot"
 
-const overviewMetrics = [
+const { snapshot } = useDashboardSnapshot()
+
+const quickMetrics = computed(() => [
   {
-    title: "Live Stream Schema",
-    value: "x / y / z",
-    subtitle: "Current incoming packet structure"
+    title: "Connection",
+    value: snapshot.value.connectionState,
+    subtitle: "Current stream status"
   },
   {
-    title: "Connection Method",
-    value: "Wi-Fi + /ws",
-    subtitle: "ESP32 WebSocket streaming path"
+    title: "Mode",
+    value: snapshot.value.mode === "mock" ? "Mock" : "ESP32",
+    subtitle: "Current monitoring mode"
   },
   {
-    title: "Dashboard Modes",
-    value: "Mock + Real",
-    subtitle: "Testing mode and hardware mode"
+    title: "Packet Count",
+    value: snapshot.value.packetCount,
+    subtitle: "Packets received so far"
   },
   {
-    title: "Client Analysis",
-    value: "Magnitude / Risk",
-    subtitle: "Derived indicators from live gyro data"
+    title: "Risk",
+    value: snapshot.value.derivedRisk,
+    subtitle: "Current interpretation"
   }
-]
+])
+
+const streamSummary = computed(() => {
+  return snapshot.value.lastPacket
+    ? `${snapshot.value.currentX.toFixed(2)} / ${snapshot.value.currentY.toFixed(2)} / ${snapshot.value.currentZ.toFixed(2)}`
+    : "Waiting for stream"
+})
 
 const systemModules = [
   {
     title: "Live Monitoring",
-    text: "Real-time x, y, z packet visualisation with stream state, packet count, and last update."
+    text: "Real-time x, y, z packet visualisation with chart-based testing support."
   },
   {
     title: "Device Connection",
-    text: "ESP32, Wi-Fi, HTTP, and WebSocket endpoint details prepared for direct local network testing."
+    text: "ESP32 IP, WebSocket target address, and endpoint validation for live integration."
   },
   {
     title: "Client-side Analysis",
-    text: "Magnitude, smoothed magnitude, status, and risk are derived directly in the dashboard."
+    text: "Magnitude, status, and risk are derived locally for fast interpretation."
   }
-]
-
-const dataFlow = [
-  "ESP32 generates gyroscope packets as x, y, z JSON data.",
-  "Packets are streamed through Wi-Fi using the /ws WebSocket endpoint.",
-  "The dashboard receives, visualises, and analyses the incoming stream.",
-  "Mock mode remains available for testing when the board is not physically available."
 ]
 </script>
 
@@ -72,7 +75,7 @@ const dataFlow = [
         </div>
         <div class="status-card">
           <span class="status-label">Current Stream</span>
-          <strong>x / y / z JSON</strong>
+          <strong>{{ snapshot.lastPacket ? "x / y / z JSON" : "No live packet yet" }}</strong>
         </div>
         <div class="status-card">
           <span class="status-label">Monitoring Mode</span>
@@ -83,7 +86,7 @@ const dataFlow = [
 
     <section class="metrics-grid">
       <MetricCard
-        v-for="item in overviewMetrics"
+        v-for="item in quickMetrics"
         :key="item.title"
         :title="item.title"
         :value="item.value"
@@ -99,13 +102,36 @@ const dataFlow = [
         </div>
 
         <ol class="step-list">
-          <li v-for="step in dataFlow" :key="step">
-            {{ step }}
-          </li>
+          <li>ESP32 generates gyroscope packets as x, y, z JSON data.</li>
+          <li>Packets are streamed through Wi-Fi using the /ws WebSocket endpoint.</li>
+          <li>The dashboard receives, visualises, and analyses the incoming stream.</li>
+          <li>Mock mode remains available for testing when the board is not physically available.</li>
         </ol>
       </article>
 
       <article class="side-column">
+        <div class="panel compact">
+          <div class="panel-header">
+            <h3>Current Snapshot</h3>
+            <span class="panel-tag">Live Summary</span>
+          </div>
+
+          <div class="value-list">
+            <div class="value-item">
+              <span>Current XYZ</span>
+              <strong class="small-strong">{{ streamSummary }}</strong>
+            </div>
+            <div class="value-item">
+              <span>Last Update</span>
+              <strong>{{ snapshot.lastUpdate }}</strong>
+            </div>
+            <div class="value-item">
+              <span>Current Finding</span>
+              <strong class="small-strong">{{ snapshot.finding }}</strong>
+            </div>
+          </div>
+        </div>
+
         <div class="panel compact">
           <div class="panel-header">
             <h3>System Modules</h3>
@@ -113,34 +139,10 @@ const dataFlow = [
           </div>
 
           <div class="module-list">
-            <div v-for="item in systemModules" :key="item.title" class="module-item">
+            <div class="module-card" v-for="item in systemModules" :key="item.title">
               <strong>{{ item.title }}</strong>
               <p>{{ item.text }}</p>
             </div>
-          </div>
-        </div>
-
-        <div class="panel compact">
-          <div class="panel-header">
-            <h3>Quick Navigation</h3>
-            <span class="panel-tag">Dashboard</span>
-          </div>
-
-          <div class="quick-links">
-            <RouterLink to="/live-data" class="quick-link-card">
-              <span>Live Data</span>
-              <strong>Monitor x / y / z packets, stream state, and derived indicators</strong>
-            </RouterLink>
-
-            <RouterLink to="/summary" class="quick-link-card">
-              <span>Summary</span>
-              <strong>Review current monitoring interpretation and stream context</strong>
-            </RouterLink>
-
-            <RouterLink to="/device-status" class="quick-link-card">
-              <span>Device Status</span>
-              <strong>Check target IP, HTTP URL, WebSocket URL, and packet format</strong>
-            </RouterLink>
           </div>
         </div>
       </article>
@@ -151,7 +153,7 @@ const dataFlow = [
 <style scoped>
 .page {
   display: grid;
-  gap: 28px;
+  gap: 26px;
 }
 
 .hero-panel {
@@ -200,6 +202,7 @@ const dataFlow = [
   border-radius: 12px;
   padding: 12px 18px;
   font-weight: 700;
+  text-decoration: none;
 }
 
 .primary-link {
@@ -246,19 +249,19 @@ const dataFlow = [
 
 .grid-main {
   display: grid;
-  grid-template-columns: 1.55fr 1fr;
-  gap: 24px;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 22px;
 }
 
 .side-column {
   display: grid;
-  gap: 24px;
+  gap: 22px;
 }
 
 .panel {
   background: white;
   border-radius: 22px;
-  padding: 24px;
+  padding: 22px;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
@@ -272,7 +275,7 @@ const dataFlow = [
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .panel-header h3 {
@@ -292,60 +295,55 @@ const dataFlow = [
 
 .step-list {
   margin: 0;
-  padding-left: 20px;
+  padding-left: 22px;
   color: #334155;
-  line-height: 1.85;
+  line-height: 1.9;
 }
 
-.module-list,
-.quick-links {
+.value-list,
+.module-list {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
-.module-item {
+.value-item,
+.module-card {
   background: #f8fafc;
-  border-radius: 16px;
-  padding: 16px 18px;
+  border-radius: 14px;
+  padding: 14px 16px;
 }
 
-.module-item strong {
-  display: block;
-  color: #0f172a;
-  margin-bottom: 6px;
+.value-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
 }
 
-.module-item p {
-  margin: 0;
+.value-item span {
   color: #475569;
-  line-height: 1.6;
-  font-size: 14px;
 }
 
-.quick-link-card {
-  display: block;
-  background: #f8fafc;
-  border-radius: 16px;
-  padding: 16px 18px;
-  transition: 0.2s ease;
-}
-
-.quick-link-card span {
-  display: block;
-  color: #1d4ed8;
-  font-size: 13px;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-
-.quick-link-card strong {
+.value-item strong {
   color: #0f172a;
+  text-align: right;
+}
+
+.small-strong {
+  font-size: 14px;
   line-height: 1.5;
 }
 
-.quick-link-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+.module-card strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #0f172a;
+}
+
+.module-card p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.6;
 }
 
 @media (max-width: 1200px) {

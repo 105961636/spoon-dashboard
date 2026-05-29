@@ -9,11 +9,11 @@ const props = defineProps({
   },
   height: {
     type: Number,
-    default: 320
+    default: 230
   },
   mode: {
     type: String,
-    default: "xy" // xy | zm
+    default: "xy"
   }
 })
 
@@ -29,15 +29,15 @@ const datasets = computed(() => {
         label: "Z Axis",
         data: props.chartData.map((item) => item.z),
         borderColor: "#16a34a",
-        tension: 0.3,
-        pointRadius: 1.5
+        tension: 0.25,
+        pointRadius: 1.2
       },
       {
         label: "Magnitude",
         data: props.chartData.map((item) => item.magnitude),
         borderColor: "#7c3aed",
-        tension: 0.3,
-        pointRadius: 1.5,
+        tension: 0.25,
+        pointRadius: 1.2,
         borderDash: [6, 4]
       }
     ]
@@ -48,21 +48,65 @@ const datasets = computed(() => {
       label: "X Axis",
       data: props.chartData.map((item) => item.x),
       borderColor: "#ef4444",
-      tension: 0.3,
-      pointRadius: 1.5
+      tension: 0.25,
+      pointRadius: 1.2
     },
     {
       label: "Y Axis",
       data: props.chartData.map((item) => item.y),
       borderColor: "#2563eb",
-      tension: 0.3,
-      pointRadius: 1.5
+      tension: 0.25,
+      pointRadius: 1.2
     }
   ]
 })
 
 const yAxisTitle = computed(() => {
-  return props.mode === "zm" ? "Z / Magnitude Value" : "X / Y Value"
+  return props.mode === "zm"
+    ? "Raw Sensor Value (Z / Magnitude)"
+    : "Sensor Value (X / Y)"
+})
+
+const yScaleConfig = computed(() => {
+  if (props.mode === "xy") {
+    return {
+      min: -120,
+      max: 120,
+      title: {
+        display: true,
+        text: yAxisTitle.value
+      }
+    }
+  }
+
+  const zValues = props.chartData.map((item) => item.z ?? 0)
+  const magnitudeValues = props.chartData.map((item) => item.magnitude ?? 0)
+  const allValues = [...zValues, ...magnitudeValues]
+
+  if (!allValues.length) {
+    return {
+      min: 0,
+      max: 100,
+      title: {
+        display: true,
+        text: yAxisTitle.value
+      }
+    }
+  }
+
+  const minValue = Math.min(...allValues)
+  const maxValue = Math.max(...allValues)
+  const range = Math.max(maxValue - minValue, 100)
+  const padding = range * 0.08
+
+  return {
+    min: minValue - padding,
+    max: maxValue + padding,
+    title: {
+      display: true,
+      text: yAxisTitle.value
+    }
+  }
 })
 
 const renderChart = () => {
@@ -94,12 +138,7 @@ const renderChart = () => {
             text: "Packet Index"
           }
         },
-        y: {
-          title: {
-            display: true,
-            text: yAxisTitle.value
-          }
-        }
+        y: yScaleConfig.value
       }
     }
   })
