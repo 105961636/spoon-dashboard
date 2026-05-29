@@ -1,9 +1,33 @@
 <script setup>
 import { computed } from "vue"
 import MetricCard from "../components/MetricCard.vue"
-import { useDashboardSnapshot } from "../composables/useDashboardSnapshot"
+import { useGyroStream } from "../composables/useGyroStream"
 
-const { snapshot } = useDashboardSnapshot()
+const {
+  ip,
+  mode,
+  connectionState,
+  packetCount,
+  lastUpdate,
+  lastPacket,
+  finding,
+  connectionBadge,
+  formattedPacket
+} = (() => {
+  const stream = useGyroStream()
+
+  return {
+    ip: computed(() => stream.esp32Ip.value.trim()),
+    mode: stream.mode,
+    connectionState: stream.connectionState,
+    packetCount: stream.packetCount,
+    lastUpdate: stream.lastUpdate,
+    lastPacket: stream.lastPacket,
+    finding: stream.finding,
+    connectionBadge: stream.connectionBadge,
+    formattedPacket: stream.formattedPacket
+  }
+})()
 
 const deviceMetrics = computed(() => [
   {
@@ -28,33 +52,21 @@ const deviceMetrics = computed(() => [
   }
 ])
 
-const httpUrl = computed(() => (snapshot.value.ip ? `http://${snapshot.value.ip}` : "-"))
-const wsUrl = computed(() => (snapshot.value.ip ? `ws://${snapshot.value.ip}/ws` : "-"))
+const httpUrl = computed(() => (ip.value ? `http://${ip.value}` : "-"))
+const wsUrl = computed(() => (ip.value ? `ws://${ip.value}/ws` : "-"))
 
 const checklist = computed(() => [
-  snapshot.value.ip ? "ESP32 local IP has been entered." : "ESP32 local IP still needs to be entered.",
-  snapshot.value.connectionState === "Connected"
+  ip.value ? "ESP32 local IP has been entered." : "ESP32 local IP still needs to be entered.",
+  connectionState.value === "Connected"
     ? "Dashboard has connected successfully to the live stream."
     : "Live dashboard connection has not yet been confirmed.",
-  snapshot.value.packetCount > 0
+  packetCount.value > 0
     ? "Packets have been received and processed by the dashboard."
     : "No packets have been recorded yet.",
-  snapshot.value.lastPacket
+  lastPacket.value
     ? "Current packet example is available for verification."
     : "No live packet sample is available yet."
 ])
-
-const packetExample = computed(() => {
-  if (!snapshot.value.lastPacket) {
-    return `{
-  "x": 12.3,
-  "y": -4.5,
-  "z": 7.8
-}`
-  }
-
-  return JSON.stringify(snapshot.value.lastPacket, null, 2)
-})
 </script>
 
 <template>
@@ -79,8 +91,22 @@ const packetExample = computed(() => {
       />
     </section>
 
-    <section class="grid-main">
+    <section class="full-width-row">
       <article class="panel">
+        <div class="panel-header">
+          <h3>Current Validation Result</h3>
+          <span class="panel-tag">Status</span>
+        </div>
+
+        <div class="status-box">
+          <strong>{{ connectionBadge }}</strong>
+          <p>{{ finding }}</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="device-main">
+      <article class="panel left-tall">
         <div class="panel-header">
           <h3>Connection Details</h3>
           <span class="panel-tag">ESP32 Target</span>
@@ -89,7 +115,7 @@ const packetExample = computed(() => {
         <div class="detail-list">
           <div class="detail-item">
             <span>ESP32 Local IP</span>
-            <strong>{{ snapshot.ip || "-" }}</strong>
+            <strong>{{ ip || "-" }}</strong>
           </div>
           <div class="detail-item">
             <span>HTTP URL</span>
@@ -101,34 +127,49 @@ const packetExample = computed(() => {
           </div>
           <div class="detail-item">
             <span>Current Mode</span>
-            <strong>{{ snapshot.mode === "mock" ? "Mock" : "ESP32" }}</strong>
+            <strong>{{ mode === "mock" ? "Mock" : "ESP32" }}</strong>
           </div>
           <div class="detail-item">
             <span>Connection State</span>
-            <strong>{{ snapshot.connectionState }}</strong>
+            <strong>{{ connectionState }}</strong>
           </div>
           <div class="detail-item">
             <span>Packet Count</span>
-            <strong>{{ snapshot.packetCount }}</strong>
+            <strong>{{ packetCount }}</strong>
           </div>
           <div class="detail-item">
             <span>Last Update</span>
-            <strong>{{ snapshot.lastUpdate }}</strong>
+            <strong>{{ lastUpdate }}</strong>
           </div>
         </div>
       </article>
 
-      <article class="panel">
-        <div class="panel-header">
-          <h3>Packet Example</h3>
-          <span class="panel-tag">Current JSON</span>
-        </div>
+      <div class="column-stack right-tall">
+        <article class="panel grow-panel">
+          <div class="panel-header">
+            <h3>Packet Example</h3>
+            <span class="panel-tag">Current JSON</span>
+          </div>
 
-        <pre class="packet-box">{{ packetExample }}</pre>
-      </article>
+          <pre class="packet-box">{{ formattedPacket }}</pre>
+        </article>
+
+        <article class="panel grow-panel">
+          <div class="panel-header">
+            <h3>System Notes</h3>
+            <span class="panel-tag">Current State</span>
+          </div>
+
+          <ul class="content-list">
+            <li>Dashboard and ESP32 are linked through Wi-Fi and the /ws WebSocket endpoint.</li>
+            <li>Live Data page remains the main testing and demonstration page.</li>
+            <li>Device Status provides the current address, packet, and validation context for troubleshooting.</li>
+          </ul>
+        </article>
+      </div>
     </section>
 
-    <section class="grid-main bottom-grid">
+    <section class="full-width-row">
       <article class="panel">
         <div class="panel-header">
           <h3>Validation Checklist</h3>
@@ -141,30 +182,22 @@ const packetExample = computed(() => {
           </li>
         </ul>
       </article>
-
-      <article class="panel">
-        <div class="panel-header">
-          <h3>System Notes</h3>
-          <span class="panel-tag">Current State</span>
-        </div>
-
-        <ul class="content-list">
-          <li>Dashboard and ESP32 are linked through Wi-Fi and the /ws WebSocket endpoint.</li>
-          <li>Live Data page remains the main testing and demonstration page.</li>
-          <li>Device Status provides the current address, packet, and validation context for troubleshooting.</li>
-        </ul>
-      </article>
     </section>
   </section>
 </template>
 
 <style scoped>
+.page {
+  display: grid;
+  gap: 16px;
+}
+
 .page-head {
-  margin-bottom: 24px;
+  margin-bottom: 2px;
 }
 
 .page-head h2 {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font-size: 30px;
 }
 
@@ -176,95 +209,136 @@ const packetExample = computed(() => {
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-  margin-bottom: 28px;
+  gap: 16px;
 }
 
-.grid-main {
+.full-width-row {
+  display: block;
+}
+
+.device-main {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 22px;
-  margin-bottom: 22px;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.left-tall,
+.right-tall {
+  height: 100%;
+}
+
+.column-stack {
+  display: grid;
+  gap: 26px;
+}
+
+.grow-panel {
+  flex: 1;
 }
 
 .panel {
   background: white;
-  border-radius: 22px;
-  padding: 22px;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  height: fit-content;
 }
 
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .panel-header h3 {
   margin: 0;
   color: #1e3a8a;
-  font-size: 22px;
+  font-size: 20px;
 }
 
 .panel-tag {
   background: #dbeafe;
   color: #1d4ed8;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  padding: 8px 12px;
+  padding: 7px 11px;
   border-radius: 999px;
 }
 
 .detail-list {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .detail-item {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
   align-items: center;
   background: #f8fafc;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 14px;
 }
 
 .detail-item span {
   color: #475569;
+  font-size: 14px;
 }
 
 .detail-item strong {
   color: #0f172a;
   text-align: right;
   word-break: break-all;
+  font-size: 15px;
+}
+
+.status-box {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.status-box strong {
+  display: block;
+  color: #1d4ed8;
+  margin-bottom: 6px;
+}
+
+.status-box p {
+  margin: 0;
+  color: #334155;
+  line-height: 1.5;
+  font-size: 14px;
 }
 
 .packet-box {
   margin: 0;
   background: #0f172a;
   color: #e2e8f0;
-  padding: 16px;
+  padding: 12px;
   border-radius: 16px;
   font-family: Consolas, monospace;
-  font-size: 14px;
-  line-height: 1.7;
+  font-size: 12px;
+  line-height: 1.55;
   overflow-x: auto;
+  max-height: 140px;
 }
 
 .content-list {
   margin: 0;
-  padding-left: 20px;
+  padding-left: 18px;
   color: #334155;
-  line-height: 1.85;
+  line-height: 1.75;
 }
 
 @media (max-width: 1200px) {
   .metrics-grid,
-  .grid-main {
+  .device-main {
     grid-template-columns: 1fr;
   }
 }
