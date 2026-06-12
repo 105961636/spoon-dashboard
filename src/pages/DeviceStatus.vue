@@ -3,31 +3,26 @@ import { computed } from "vue"
 import MetricCard from "../components/MetricCard.vue"
 import { useGyroStream } from "../composables/useGyroStream"
 
+const stream = useGyroStream()
+const ip = computed(() => stream.esp32Ip.value.trim())
+
 const {
-  ip,
+  alertLevel,
+  connectionBadge,
+  finding,
+  dominantAxis,
+  motionScore,
+  stabilityIndex,
+  deteriorationTrend,
+  alertSummary,
+  peakToPeakText,
+  formattedPacket,
   mode,
   connectionState,
   packetCount,
   lastUpdate,
-  lastPacket,
-  finding,
-  connectionBadge,
-  formattedPacket
-} = (() => {
-  const stream = useGyroStream()
-
-  return {
-    ip: computed(() => stream.esp32Ip.value.trim()),
-    mode: stream.mode,
-    connectionState: stream.connectionState,
-    packetCount: stream.packetCount,
-    lastUpdate: stream.lastUpdate,
-    lastPacket: stream.lastPacket,
-    finding: stream.finding,
-    connectionBadge: stream.connectionBadge,
-    formattedPacket: stream.formattedPacket
-  }
-})()
+  lastPacket
+} = stream
 
 const deviceMetrics = computed(() => [
   {
@@ -95,12 +90,39 @@ const checklist = computed(() => [
       <article class="panel">
         <div class="panel-header">
           <h3>Current Validation Result</h3>
-          <span class="panel-tag">Status</span>
+          <span class="alert-level" :class="alertLevel.toLowerCase()">{{ alertLevel }}</span>
         </div>
 
         <div class="status-box">
           <strong>{{ connectionBadge }}</strong>
           <p>{{ finding }}</p>
+        </div>
+
+        <div class="derived-mini-grid">
+          <div class="mini-item">
+            <span>Dominant Axis</span>
+            <strong>{{ dominantAxis }}</strong>
+          </div>
+          <div class="mini-item">
+            <span>Motion Score</span>
+            <strong>{{ motionScore }}/100</strong>
+          </div>
+          <div class="mini-item">
+            <span>Stability Index</span>
+            <strong>{{ stabilityIndex }}/100</strong>
+          </div>
+          <div class="mini-item">
+            <span>Trend</span>
+            <strong>{{ deteriorationTrend }}</strong>
+          </div>
+          <div class="mini-item">
+            <span>Alert Summary</span>
+            <strong>{{ alertSummary }}</strong>
+          </div>
+          <div class="mini-item">
+            <span>Peak-to-Peak</span>
+            <strong>{{ peakToPeakText }}</strong>
+          </div>
         </div>
       </article>
     </section>
@@ -162,8 +184,8 @@ const checklist = computed(() => [
 
           <ul class="content-list">
             <li>Dashboard and ESP32 are linked through Wi-Fi and the /ws WebSocket endpoint.</li>
-            <li>Live Data page remains the main testing and demonstration page.</li>
-            <li>Device Status provides the current address, packet, and validation context for troubleshooting.</li>
+            <li>Raw x / y / z packets are further interpreted in software rather than shown only as raw values.</li>
+            <li>Device Status combines address validation, packet checking, derived indicators, and alert readiness.</li>
           </ul>
         </article>
       </div>
@@ -269,6 +291,28 @@ const checklist = computed(() => [
   border-radius: 999px;
 }
 
+.alert-level {
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.alert-level.normal {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.alert-level.medium {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.alert-level.high {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
 .detail-list {
   display: grid;
   gap: 8px;
@@ -316,6 +360,31 @@ const checklist = computed(() => [
   font-size: 14px;
 }
 
+.derived-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.mini-item {
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.mini-item span {
+  display: block;
+  color: #475569;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.mini-item strong {
+  color: #0f172a;
+  font-size: 15px;
+}
+
 .packet-box {
   margin: 0;
   background: #0f172a;
@@ -338,7 +407,8 @@ const checklist = computed(() => [
 
 @media (max-width: 1200px) {
   .metrics-grid,
-  .device-main {
+  .device-main,
+  .derived-mini-grid {
     grid-template-columns: 1fr;
   }
 }

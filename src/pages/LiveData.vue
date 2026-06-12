@@ -4,6 +4,8 @@ import MetricCard from "../components/MetricCard.vue"
 import GyroChart from "../components/GyroChart.vue"
 import { useGyroStream } from "../composables/useGyroStream"
 
+const stream = useGyroStream()
+
 const {
   mode,
   esp32Ip,
@@ -11,26 +13,32 @@ const {
   packetCount,
   lastUpdate,
   packetSource,
+  history,
+  errorMessage,
+  alertLevel,
+  dominantAxis,
+  motionScore,
+  stabilityIndex,
+  xRangeText,
+  yRangeText,
+  zRangeText,
+  peakToPeakText,
+  smoothedMagnitude,
+  motionBand,
+  derivedStatus,
+  derivedRisk,
+  finding,
   currentX,
   currentY,
   currentZ,
   currentMagnitude,
-  history,
-  errorMessage,
-  xRangeText,
-  yRangeText,
-  zRangeText,
-  smoothedMagnitude,
-  derivedStatus,
-  derivedRisk,
-  finding,
   formattedPacket,
   websocketUrl,
   startStream,
   stopStream,
   resetStream,
   changeMode
-} = useGyroStream()
+} = stream
 
 const selectedMode = computed({
   get: () => mode.value,
@@ -44,8 +52,8 @@ const selectedMode = computed({
       <div>
         <h2>Live Data</h2>
         <p>
-          Real-time monitoring of ESP32 packets with stream validation, debugging,
-          and testing-focused visualisation.
+          Real-time monitoring of ESP32 packets with charts, current values,
+          analysis status, and core alert summary.
         </p>
       </div>
 
@@ -75,7 +83,28 @@ const selectedMode = computed({
       <MetricCard title="Connection" :value="connectionState" subtitle="Current stream state" />
       <MetricCard title="Packet Count" :value="packetCount" subtitle="Received gyro packets" />
       <MetricCard title="Last Update" :value="lastUpdate" subtitle="Latest packet timestamp" />
-      <MetricCard title="Source" :value="packetSource" subtitle="Current input provider" />
+      <MetricCard title="Alert Level" :value="alertLevel" subtitle="Current abnormal motion status" />
+    </section>
+
+    <section class="summary-strip">
+      <article class="panel compact-panel">
+        <div class="panel-header">
+          <h3>Current Alert Summary</h3>
+          <span class="alert-level" :class="alertLevel.toLowerCase()">{{ alertLevel }}</span>
+        </div>
+
+        <div class="value-list">
+          <div class="value-item"><span>Dominant Axis</span><strong>{{ dominantAxis }}</strong></div>
+          <div class="value-item"><span>Motion Score</span><strong>{{ motionScore }}/100</strong></div>
+          <div class="value-item"><span>Stability Index</span><strong>{{ stabilityIndex }}/100</strong></div>
+          <div class="value-item"><span>Peak-to-Peak</span><strong>{{ peakToPeakText }}</strong></div>
+        </div>
+
+        <div class="finding-box">
+          <strong>Current Finding</strong>
+          <p>{{ finding }}</p>
+        </div>
+      </article>
     </section>
 
     <div class="section-head">
@@ -95,13 +124,14 @@ const selectedMode = computed({
       <article class="panel row-tall">
         <div class="panel-header">
           <h3>Testing Indicators</h3>
-          <span class="panel-tag">Ranges</span>
+          <span class="panel-tag">Derived</span>
         </div>
 
         <div class="value-list">
           <div class="value-item"><span>X Range</span><strong>{{ xRangeText }}</strong></div>
           <div class="value-item"><span>Y Range</span><strong>{{ yRangeText }}</strong></div>
           <div class="value-item"><span>Z Range</span><strong>{{ zRangeText }}</strong></div>
+          <div class="value-item"><span>Peak-to-Peak Motion</span><strong>{{ peakToPeakText }}</strong></div>
         </div>
       </article>
 
@@ -139,6 +169,10 @@ const selectedMode = computed({
 
         <div class="value-list">
           <div class="value-item"><span>Smoothed Magnitude</span><strong>{{ smoothedMagnitude.toFixed(2) }}</strong></div>
+          <div class="value-item"><span>Dominant Axis</span><strong>{{ dominantAxis }}</strong></div>
+          <div class="value-item"><span>Motion Score</span><strong>{{ motionScore }}/100</strong></div>
+          <div class="value-item"><span>Stability Index</span><strong>{{ stabilityIndex }}/100</strong></div>
+          <div class="value-item"><span>Motion Band</span><strong>{{ motionBand }}</strong></div>
           <div class="value-item"><span>Status</span><strong>{{ derivedStatus }}</strong></div>
           <div class="value-item"><span>Risk</span><strong>{{ derivedRisk }}</strong></div>
         </div>
@@ -155,11 +189,15 @@ const selectedMode = computed({
           <span class="panel-tag">Live</span>
         </div>
 
-        <div class="value-list">
+        <div class="value-list current-values-list">
           <div class="value-item"><span>X</span><strong>{{ currentX.toFixed(2) }}</strong></div>
           <div class="value-item"><span>Y</span><strong>{{ currentY.toFixed(2) }}</strong></div>
           <div class="value-item"><span>Z</span><strong>{{ currentZ.toFixed(2) }}</strong></div>
           <div class="value-item"><span>Magnitude</span><strong>{{ currentMagnitude.toFixed(2) }}</strong></div>
+          <div class="value-item"><span>Dominant Axis</span><strong>{{ dominantAxis }}</strong></div>
+          <div class="value-item"><span>Alert Level</span><strong>{{ alertLevel }}</strong></div>
+          <div class="value-item"><span>Packet Count</span><strong>{{ packetCount }}</strong></div>
+          <div class="value-item"><span>Last Update</span><strong>{{ lastUpdate }}</strong></div>
         </div>
       </article>
     </section>
@@ -249,6 +287,36 @@ button {
   gap: 16px;
 }
 
+.summary-strip {
+  display: block;
+}
+
+.compact-panel {
+  border: 1px solid #dbeafe;
+}
+
+.alert-level {
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.alert-level.normal {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.alert-level.medium {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.alert-level.high {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
 .section-head {
   display: flex;
   justify-content: space-between;
@@ -287,6 +355,11 @@ button {
 .current-values-panel {
   display: flex;
   flex-direction: column;
+}
+
+.current-values-list {
+  grid-template-rows: repeat(8, 1fr);
+  flex: 1;
 }
 
 .panel-header {
@@ -404,5 +477,16 @@ button {
   .ip-input {
     min-width: 100%;
   }
+
+  .current-values-list {
+    grid-template-rows: none;
+  }
 }
 </style>
+
+
+
+
+
+
+

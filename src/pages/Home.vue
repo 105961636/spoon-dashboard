@@ -4,18 +4,23 @@ import { RouterLink } from "vue-router"
 import MetricCard from "../components/MetricCard.vue"
 import { useGyroStream } from "../composables/useGyroStream"
 
+const stream = useGyroStream()
+
 const {
   connectionState,
   currentModeLabel,
   packetCount,
-  derivedRisk,
   streamLabel,
+  alertLevel,
   currentXYZText,
   lastUpdate,
-  finding,
-  xRangeText,
-  yRangeText
-} = useGyroStream()
+  dominantAxis,
+  motionScore,
+  stabilityIndex,
+  alertSummary,
+  deteriorationTrend,
+  finding
+} = stream
 
 const quickMetrics = computed(() => [
   {
@@ -34,9 +39,9 @@ const quickMetrics = computed(() => [
     subtitle: "Packets received so far"
   },
   {
-    title: "Risk",
-    value: derivedRisk.value,
-    subtitle: "Current interpretation"
+    title: "Alert Level",
+    value: alertLevel.value,
+    subtitle: "Current abnormal motion risk"
   }
 ])
 
@@ -50,20 +55,28 @@ const currentOverview = computed(() => [
     value: lastUpdate.value
   },
   {
-    label: "Packet Count",
-    value: String(packetCount.value)
+    label: "Dominant Axis",
+    value: dominantAxis.value
+  },
+  {
+    label: "Motion Score",
+    value: `${motionScore.value}/100`
+  },
+  {
+    label: "Stability Index",
+    value: `${stabilityIndex.value}/100`
+  },
+  {
+    label: "Alert Summary",
+    value: alertSummary.value
+  },
+  {
+    label: "Trend",
+    value: deteriorationTrend.value
   },
   {
     label: "Current Finding",
     value: finding.value
-  },
-  {
-    label: "X Range",
-    value: xRangeText.value
-  },
-  {
-    label: "Y Range",
-    value: yRangeText.value
   }
 ])
 
@@ -73,12 +86,12 @@ const systemModules = [
     text: "Real-time x, y, z packet visualisation with chart-based testing support."
   },
   {
-    title: "Device Connection",
-    text: "ESP32 IP, WebSocket target address, and endpoint validation for live integration."
+    title: "Derived Metrics",
+    text: "Software computes dominant axis, motion score, stability index, and motion range from raw x / y / z."
   },
   {
-    title: "Client-side Analysis",
-    text: "Magnitude, status, and risk are derived locally for fast interpretation."
+    title: "Alert Detection",
+    text: "Dashboard flags sudden escalation, sustained abnormal motion, and reduced stability without hardware protocol changes."
   }
 ]
 </script>
@@ -91,12 +104,12 @@ const systemModules = [
         <h2>System Overview</h2>
         <p>
           A monitoring dashboard for viewing live gyroscope data, validating ESP32
-          connectivity, and presenting derived indicators for the smart spoon system.
+          connectivity, and converting raw x / y / z values into interpretable indicators and alerts.
         </p>
 
         <div class="hero-actions">
           <RouterLink to="/live-data" class="primary-link">Open Live Data</RouterLink>
-          <RouterLink to="/device-status" class="secondary-link">Check Device Status</RouterLink>
+          <RouterLink to="/testing-lab" class="secondary-link">Open Testing Lab</RouterLink>
         </div>
       </div>
 
@@ -110,8 +123,8 @@ const systemModules = [
           <strong>{{ streamLabel }}</strong>
         </div>
         <div class="status-card">
-          <span class="status-label">Monitoring Mode</span>
-          <strong>Mock and Real</strong>
+          <span class="status-label">Current Alert</span>
+          <strong>{{ alertLevel }}</strong>
         </div>
       </div>
     </section>
@@ -164,9 +177,9 @@ const systemModules = [
         </div>
 
         <ol class="step-list">
-          <li>ESP32 sends x / y / z JSON packets.</li>
+          <li>ESP32 sends raw x / y / z gyroscope packets.</li>
           <li>Packets are streamed through the /ws WebSocket endpoint.</li>
-          <li>The dashboard receives, visualises, and interprets the stream.</li>
+          <li>The dashboard computes magnitude, dominant axis, motion score, stability index, and alert conditions from the raw data.</li>
         </ol>
       </article>
     </section>
@@ -274,7 +287,7 @@ const systemModules = [
   display: grid;
   grid-template-columns: 1.35fr 1fr;
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .full-width-row {
@@ -290,7 +303,9 @@ const systemModules = [
 }
 
 .panel.compact {
-  height: fit-content;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .panel-header {
@@ -350,6 +365,14 @@ const systemModules = [
 .module-list {
   display: grid;
   gap: 10px;
+  flex: 1;
+  grid-template-rows: repeat(3, 1fr);
+}
+
+.module-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .module-card strong {
@@ -380,5 +403,17 @@ const systemModules = [
   .overview-grid {
     grid-template-columns: 1fr;
   }
+
+  .panel.compact {
+    height: fit-content;
+  }
+
+  .module-list {
+    grid-template-rows: none;
+  }
 }
 </style>
+
+
+
+

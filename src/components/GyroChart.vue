@@ -20,24 +20,30 @@ const props = defineProps({
 const canvasRef = ref(null)
 let chartInstance = null
 
-const labels = computed(() => props.chartData.map((_, index) => index + 1))
+const visibleData = computed(() => {
+  return props.chartData.slice(-100)
+})
+
+const labels = computed(() => visibleData.value.map((_, index) => index + 1))
 
 const datasets = computed(() => {
   if (props.mode === "zm") {
     return [
       {
         label: "Z Axis",
-        data: props.chartData.map((item) => item.z),
+        data: visibleData.value.map((item) => item.z),
         borderColor: "#16a34a",
         tension: 0.25,
-        pointRadius: 1.2
+        pointRadius: 1.2,
+        borderWidth: 2.5
       },
       {
         label: "Magnitude",
-        data: props.chartData.map((item) => item.magnitude),
+        data: visibleData.value.map((item) => item.magnitude),
         borderColor: "#7c3aed",
         tension: 0.25,
         pointRadius: 1.2,
+        borderWidth: 2.5,
         borderDash: [6, 4]
       }
     ]
@@ -46,17 +52,19 @@ const datasets = computed(() => {
   return [
     {
       label: "X Axis",
-      data: props.chartData.map((item) => item.x),
+      data: visibleData.value.map((item) => item.x),
       borderColor: "#ef4444",
       tension: 0.25,
-      pointRadius: 1.2
+      pointRadius: 1.2,
+      borderWidth: 2.5
     },
     {
       label: "Y Axis",
-      data: props.chartData.map((item) => item.y),
+      data: visibleData.value.map((item) => item.y),
       borderColor: "#2563eb",
       tension: 0.25,
-      pointRadius: 1.2
+      pointRadius: 1.2,
+      borderWidth: 2.5
     }
   ]
 })
@@ -67,44 +75,59 @@ const yAxisTitle = computed(() => {
     : "Sensor Value (X / Y)"
 })
 
-const yScaleConfig = computed(() => {
-  if (props.mode === "xy") {
+const buildAxisBounds = (values, fallbackMin, fallbackMax) => {
+  const numericValues = values.filter((value) => Number.isFinite(value))
+
+  if (!numericValues.length) {
     return {
-      min: -120,
-      max: 120,
-      title: {
-        display: true,
-        text: yAxisTitle.value
-      }
+      min: fallbackMin,
+      max: fallbackMax
     }
   }
 
-  const zValues = props.chartData.map((item) => item.z ?? 0)
-  const magnitudeValues = props.chartData.map((item) => item.magnitude ?? 0)
-  const allValues = [...zValues, ...magnitudeValues]
+  const minValue = Math.min(...numericValues)
+  const maxValue = Math.max(...numericValues)
 
-  if (!allValues.length) {
+  if (minValue === maxValue) {
+    const singlePadding = Math.max(Math.abs(minValue) * 0.15, 10)
     return {
-      min: 0,
-      max: 100,
-      title: {
-        display: true,
-        text: yAxisTitle.value
-      }
+      min: minValue - singlePadding,
+      max: maxValue + singlePadding
     }
   }
 
-  const minValue = Math.min(...allValues)
-  const maxValue = Math.max(...allValues)
-  const range = Math.max(maxValue - minValue, 100)
-  const padding = range * 0.08
+  const range = maxValue - minValue
+  const padding = Math.max(range * 0.15, 10)
 
   return {
     min: minValue - padding,
-    max: maxValue + padding,
+    max: maxValue + padding
+  }
+}
+
+const yScaleConfig = computed(() => {
+  const allValues =
+    props.mode === "xy"
+      ? visibleData.value.flatMap((item) => [item.x, item.y])
+      : visibleData.value.flatMap((item) => [item.z, item.magnitude])
+
+  const bounds =
+    props.mode === "xy"
+      ? buildAxisBounds(allValues, -120, 120)
+      : buildAxisBounds(allValues, -60, 160)
+
+  return {
+    min: bounds.min,
+    max: bounds.max,
     title: {
       display: true,
       text: yAxisTitle.value
+    },
+    grid: {
+      color: "rgba(148, 163, 184, 0.18)"
+    },
+    ticks: {
+      color: "#64748b"
     }
   }
 })
@@ -126,13 +149,40 @@ const renderChart = () => {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
+      interaction: {
+        mode: "index",
+        intersect: false
+      },
       plugins: {
         legend: {
-          position: "top"
+          position: "top",
+          labels: {
+            color: "#475569",
+            boxWidth: 32,
+            font: {
+              size: 12
+            }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label(context) {
+              const value = context.parsed.y
+              return `${context.dataset.label}: ${Number(value).toFixed(2)}`
+            }
+          }
         }
       },
       scales: {
         x: {
+          grid: {
+            color: "rgba(148, 163, 184, 0.18)"
+          },
+          ticks: {
+            color: "#64748b",
+            maxRotation: 45,
+            minRotation: 45
+          },
           title: {
             display: true,
             text: "Packet Index"

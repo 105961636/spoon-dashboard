@@ -3,15 +3,7 @@ import { computed } from "vue"
 import MetricCard from "../components/MetricCard.vue"
 import { useGyroStream } from "../composables/useGyroStream"
 
-const {
-  connectionState,
-  packetCount,
-  lastUpdate,
-  xRangeText,
-  yRangeText,
-  zRangeText,
-  finding
-} = useGyroStream()
+const stream = useGyroStream()
 
 const summaryMetrics = computed(() => [
   {
@@ -26,8 +18,8 @@ const summaryMetrics = computed(() => [
   },
   {
     title: "Derived Indicators",
-    value: "3",
-    subtitle: "Magnitude, status, and risk"
+    value: "5+",
+    subtitle: "Magnitude, axis, score, stability, risk, alerts"
   },
   {
     title: "Connection Method",
@@ -37,61 +29,42 @@ const summaryMetrics = computed(() => [
 ])
 
 const outputs = computed(() => [
-  {
-    label: "Raw Input",
-    value: "x / y / z"
-  },
-  {
-    label: "Calculated Magnitude",
-    value: "Enabled"
-  },
-  {
-    label: "Status Layer",
-    value: "Stable / Monitoring / Unstable"
-  },
-  {
-    label: "Risk Layer",
-    value: "Low / Medium / High"
-  }
+  { label: "Raw Input", value: "x / y / z" },
+  { label: "Calculated Magnitude", value: "Enabled" },
+  { label: "Dominant Axis", value: "Enabled" },
+  { label: "Peak-to-Peak Motion", value: "Enabled" },
+  { label: "Motion Score", value: "0 - 100" },
+  { label: "Stability Index", value: "0 - 100" },
+  { label: "Trend Detection", value: "Enabled" },
+  { label: "Alert Level", value: "Normal / Medium / High" }
 ])
 
 const testingSnapshot = computed(() => [
-  {
-    label: "Connection",
-    value: connectionState.value
-  },
-  {
-    label: "Packet Count",
-    value: String(packetCount.value)
-  },
-  {
-    label: "Last Update",
-    value: lastUpdate.value
-  },
-  {
-    label: "X Range",
-    value: xRangeText.value
-  },
-  {
-    label: "Y Range",
-    value: yRangeText.value
-  },
-  {
-    label: "Z Range",
-    value: zRangeText.value
-  }
+  { label: "Connection", value: stream.connectionState.value },
+  { label: "Packet Count", value: String(stream.packetCount.value) },
+  { label: "Last Update", value: stream.lastUpdate.value },
+  { label: "Dominant Axis", value: stream.dominantAxis.value },
+  { label: "Motion Score", value: `${stream.motionScore.value}/100` },
+  { label: "Stability Index", value: `${stream.stabilityIndex.value}/100` },
+  { label: "Trend", value: stream.deteriorationTrend.value },
+  { label: "Alert Level", value: stream.alertLevel.value },
+  { label: "X Range", value: stream.xRangeText.value },
+  { label: "Y Range", value: stream.yRangeText.value },
+  { label: "Z Range", value: stream.zRangeText.value },
+  { label: "Peak-to-Peak", value: stream.peakToPeakText.value }
 ])
 
 const currentFindings = computed(() => [
   "Dashboard can receive and visualise real-time ESP32 packets through WebSocket.",
-  "Packet count, raw packet output, and current values support testing and troubleshooting.",
-  finding.value
+  "Raw x / y / z values are converted into dominant axis, motion score, stability index, and motion range.",
+  "Abnormal motion warnings can be triggered from software without requiring extra hardware-side fields.",
+  stream.finding.value
 ])
 
 const limitations = computed(() => [
   "Current data stream is limited to x / y / z fields.",
-  "Higher-level corrected or stabilised output is not yet integrated.",
-  "Interpretation quality depends on consistency of incoming sensor units and scale."
+  "Derived indicators and alerts are software-side interpretations, not medical diagnosis outputs.",
+  "Higher-level corrected or stabilised output is not yet integrated."
 ])
 </script>
 
@@ -102,7 +75,7 @@ const limitations = computed(() => [
         <h2>Summary</h2>
         <p>
           Monitoring summary for the current dashboard capabilities, available
-          outputs, and real-time data interpretation layer.
+          outputs, and abnormal motion alert detection built from raw x / y / z.
         </p>
       </div>
     </div>
